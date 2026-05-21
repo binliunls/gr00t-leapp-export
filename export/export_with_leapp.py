@@ -69,6 +69,15 @@ def maybe_register_embodiment_joints(embodiment_tag: str, dataset_path: str, joi
     register_embodiment_joints(tag, joints)
 
 
+def _split_leapp_output_path(output_name: str) -> tuple[str, str]:
+    """Split a user output path into LEAPP's save_path and graph name arguments."""
+    normalized_output = os.path.normpath(os.path.expanduser(output_name))
+    save_path, graph_name = os.path.split(normalized_output)
+    if not graph_name:
+        raise ValueError(f"--output_name must include a directory or model name, got: {output_name}")
+    return save_path or ".", graph_name
+
+
 def export_gr00t_with_leapp(policy, data, output_name='exported_gr00t'):
     """
     Export GR00T policy using leapp framework.
@@ -93,15 +102,17 @@ def export_gr00t_with_leapp(policy, data, output_name='exported_gr00t'):
         export_with='onnx',
     )(policy.model.action_head.get_action)
 
+    save_path, graph_name = _split_leapp_output_path(output_name)
+
     # Run tracing
-    leapp.start(output_name, global_patching=False, dry_run=False)
+    leapp.start(graph_name, save_path=save_path, global_patching=False, dry_run=False)
     get_action_traceable(policy, data)
     leapp.stop()
     
     # Compile and export
     leapp.compile_graph(validate=False) # validate with comparison script
     
-    print(f"Export completed: {output_name}")
+    print(f"Export completed: {os.path.join(save_path, graph_name)}")
 
 
 def main():
